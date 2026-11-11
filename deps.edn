@@ -15,4 +15,5 @@
 
         duratom/duratom {:mvn/version "0.5.9"}}
 
- :aliases {:nextjournal/garden {:exec-fn cauliflower-duratom/serve!}}}
+ :aliases {:nextjournal/garden {:exec-fn cauliflower-duratom/serve!
+                                :jvm-opts ["--enable-native-access=ALL-UNNAMED"]}}}
