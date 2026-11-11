@@ -250,7 +250,7 @@
                           :subject (format "%s (%s) has canceled their appointment at %s %s:00"
                                            (:user/name login) (:user/email login) date hour)}]
      [:garden-email/send {:to {:email (:user/email login)}
-                               :subject (format "You cancelled an appointment at %s %s:00" date hour)}]]))
+                          :subject (format "You cancelled an appointment at %s %s:00" date hour)}]]))
 
 (defn next-week
   {:command/uri "/next-week"}
