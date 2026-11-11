@@ -87,7 +87,9 @@
          :exception/report-fn #'print-exception}))
 
 (comment
+  @(:duratom/duratom @!system)
   (swap! !system assoc :exception/report-fn #'print-exception)
+  (system->state @!system)
   ,)
 
 (defn report-exception!
@@ -101,9 +103,9 @@
                    :exception/data (merge extra-data data)})))))
 
 (defn system->state [system]
-  {:world/today (now)
-   ;; TODO deref'ed duratom
-   })
+  (let [{:keys [user-state]} @(:duratom/duratom system)]
+    {:world/today (now)
+     :user-state user-state}))
 
 ;; ── command declaration for render fns  ───────────────────────────────────
 
@@ -165,8 +167,7 @@
     [:button.outline {:data-on:click (invoke #'next-week)} "next week →"]]])
 
 (defn find-current-week [state user]
-  ;; TODO
-  )
+  (get-in state [:user-state (:user/username user) :week]))
 
 (defn index [state]
   (let [user (:session/login state)
@@ -241,8 +242,7 @@
   (let [user (:session/login state)
         current (or (find-current-week state user)
                     (start-of-week (:world/today state)))]
-    ;; TODO effect for updating the week
-    nil))
+    [[:duratom/assoc-in [:user-state (:user/username user) :week] (offset-week current offset)]]))
 
 (defn book-appointment
   {:command/uri "/book-appointment"}
@@ -291,11 +291,14 @@
      #'unbook-appointment
      #'clear-database}))
 
-(defn garden-email-send [_ args]
-  (garden-email/send-email! args))
+(defn duratom-assoc-in [system ks v]
+  (swap! (:duratom/duratom system) assoc-in ks v))
+
+(defn garden-email-send [_ email]
+  (garden-email/send-email! email))
 
 (def effect-handlers
-  {;; TODO effect handler for persisting in duratom
+  {:duratom/assoc-in #'duratom-assoc-in
    :garden-email/send #'garden-email-send})
 
 (defonce ^{:doc "Print an effect's data before effectuating"} print-effect? #{})
@@ -303,13 +306,13 @@
 
 (defn effectuate! "Effectuate effects sequentially. Halt if one fails."
   [effects]
-  (doseq [[kind args :as effect] effects
+  (doseq [[kind & args :as effect] effects
           :when effect]
     (if-let [handler (get effect-handlers kind)]
       (try
         (when (print-effect? kind)
           (prn effect))
-        (handler @!system args)
+        (apply handler @!system args)
         (catch Exception e
           (report-exception! :effectuation e)))
       (throw (ex-info (str "Unsupported effect kind: " kind) {:kind kind})))))
