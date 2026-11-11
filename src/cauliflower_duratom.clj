@@ -2,6 +2,7 @@
   (:require
    [clojure.set :as set]
    [clojure.string :as str]
+   [duratom.core]
    [hiccup2.core :as h]
    [nextjournal.garden-id :as garden-id]
    [nextjournal.garden-email :as garden-email]
@@ -50,6 +51,22 @@
   (date->keyword "2024-01-01") ;=> :monday
   ,)
 
+;; ── duratom ───────────────────────────────────────────────────────────────
+
+(def duratom
+  (duratom.core/duratom :local-file
+                        :file-path (str (System/getenv "GARDEN_STORAGE") "/duratom.edn")
+                        :commit-mode :sync
+                        :init {}))
+;; shape:
+{:user-state {"teodorlu" {:week "2026-11-09"}}
+ :appointments {"2026-10-26" {9 "teodor@local"
+                              12 "teodor@local"
+                              13 "teodor@local"
+                              14 "teodor@local"}
+                "2026-11-11" {8 "teodor@local"
+                              12 "teodor@local"}}}
+
 ;; ── system ────────────────────────────────────────────────────────────────
 
 (def dev?
@@ -66,6 +83,7 @@
 (defonce !system
   (atom {:httpkit/server nil
          :datastar/connections {}
+         :duratom/duratom duratom
          :exception/report-fn #'print-exception}))
 
 (comment
@@ -86,10 +104,6 @@
   {:world/today (now)
    ;; TODO deref'ed duratom
    })
-
-;; ── duratom ───────────────────────────────────────────────────────────────
-
-;; TODO
 
 ;; ── command declaration for render fns  ───────────────────────────────────
 
