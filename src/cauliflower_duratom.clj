@@ -59,13 +59,13 @@
                         :commit-mode :sync
                         :init {}))
 ;; shape:
-{:user-state {"teodorlu" {:week "2026-11-09"}}
- :appointments {"2026-10-26" {9 "teodor@local"
-                              12 "teodor@local"
-                              13 "teodor@local"
-                              14 "teodor@local"}
-                "2026-11-11" {8 "teodor@local"
-                              12 "teodor@local"}}}
+{:state/per-user {"teodorlu" {:week "2026-11-09"}}
+ :state/appointments {"2026-10-26" {9 "teodor@local"
+                                    12 "teodor@local"
+                                    13 "teodor@local"
+                                    14 "teodor@local"}
+                      "2026-11-11" {8 "teodor@local"
+                                    12 "teodor@local"}}}
 
 ;; ── system ────────────────────────────────────────────────────────────────
 
@@ -103,15 +103,14 @@
                    :exception/data (merge extra-data data)})))))
 
 (defn system->state [system]
-  (let [{:keys [user-state]} @(:duratom/duratom system)]
-    {:world/today (now)
-     :user-state user-state}))
+  (-> (select-keys @(:duratom/duratom system) [:state/per-user :state/appointments])
+      (assoc :world/today (now))))
 
 ;; ── command declaration for render fns  ───────────────────────────────────
 
 (declare next-week prev-week
          book-appointment unbook-appointment
-         clear-database)
+         clear-appointments)
 
 ;; ── app & render ──────────────────────────────────────────────────────────
 
@@ -145,10 +144,12 @@
                :checked (= status :mine)
                :data-on:change
                (if (= status :free)
-                 (invoke #'book-appointment {"date" day "hour" hour})
-                 (invoke #'unbook-appointment {"appointment" (:appointment/id appointment)
-                                               "date" day
-                                               "hour" hour}))}]
+                 (invoke #'book-appointment {"date" day "hour" hour} {:disable true})
+                 (invoke #'unbook-appointment
+                         {"appointment" (:appointment/id appointment)
+                          "date" day
+                          "hour" hour}
+                         {:disable true}))}]
       (str hour ":00")])])
 
 (defn render-week [state start-of-week]
@@ -162,12 +163,16 @@
     [:button.outline (if (or (before? start-of-week (:world/today state))
                              (= start-of-week (:world/today state)))
                        {:disabled true}
-                       {:data-on:click (invoke #'prev-week)})
+                       {:data-on:click (invoke #'prev-week nil {:disable true})})
      "← prev week"]
-    [:button.outline {:data-on:click (invoke #'next-week)} "next week →"]]])
+    [:button.outline {:data-on:click (invoke #'next-week nil {:disable true})}
+     "next week →"]]])
 
 (defn find-current-week [state user]
-  (get-in state [:user-state (:user/username user) :week]))
+  (get-in state [:state/per-user (:user/username user) :week]))
+
+(defn count-appointments [state]
+  (transduce (comp (map val) (map count)) + 0 (:state/appointments state)))
 
 (defn index [state]
   (let [user (:session/login state)
@@ -180,13 +185,8 @@
        (render-week state (or (find-current-week state user)
                               (start-of-week (:world/today state)))))
      (when dev?
-       [:p
-        (str (or nil ; number of appintments
-                 0)
-             ) " appointments. "
-        [:button {;; :data-on:click -> clear bookings
-                  }
-         "Clear all"]])
+       [:p (str (count-appointments state)) " appointments. "
+        [:button {:data-on:click (invoke #'clear-appointments nil {:disable true})} "Clear appointments"]])
      [:p "Source: " [:a {:href "https://github.com/teodorlu/cauliflower-duratom"}
                      "github.com/teodorlu/cauliflower-duratom"]]]))
 
@@ -242,13 +242,13 @@
   (let [user (:session/login state)
         current (or (find-current-week state user)
                     (start-of-week (:world/today state)))]
-    [[:duratom/assoc-in [:user-state (:user/username user) :week] (offset-week current offset)]]))
+    [[:duratom/assoc-in [:state/per-user (:user/username user) :week] (offset-week current offset)]]))
 
 (defn book-appointment
   {:command/uri "/book-appointment"}
-  [state {:strs [date hour] :as params}]
+  [state {:strs [date hour]}]
   (let [login (:session/login state)]
-    [(prn 'TODO 'persist 'booking params)
+    [[:duratom/assoc-in [:state/appointments date (parse-long hour)] "teodor@local"]
      [:garden-email/send {:to {:email owner-email}
                           :subject (format "%s (%s) booked appointment at %s %s:00"
                                            (:user/name login) (:user/email login) date hour)}]
@@ -276,12 +276,11 @@
   [state params]
   (update-week -1 state params))
 
-(defn clear-database
-  {:command/uri "/clear-database"}
-  [state _]
+(defn clear-appointments
+  {:command/uri "/clear-appointments"}
+  [_ _]
   (when dev?
-    [nil ; TODO clear state
-     ]))
+    [[:duratom/dissoc-in [:state/appointments]]]))
 
 (def commands-by-uri
   (torque/commands-by-uri
@@ -289,16 +288,25 @@
      #'prev-week
      #'book-appointment
      #'unbook-appointment
-     #'clear-database}))
+     #'clear-appointments}))
 
 (defn duratom-assoc-in [system ks v]
   (swap! (:duratom/duratom system) assoc-in ks v))
+
+(defn duratom-dissoc-in [system ks]
+  (cond
+    (= 1 (count ks))
+    (swap! (:duratom/duratom system) dissoc (first ks))
+
+    (< 1 (count ks))
+    (swap! (:duratom/duratom system) update-in (butlast ks) dissoc (last ks))))
 
 (defn garden-email-send [_ email]
   (garden-email/send-email! email))
 
 (def effect-handlers
   {:duratom/assoc-in #'duratom-assoc-in
+   :duratom/dissoc-in #'duratom-dissoc-in
    :garden-email/send #'garden-email-send})
 
 (defonce ^{:doc "Print an effect's data before effectuating"} print-effect? #{})
@@ -317,6 +325,10 @@
           (report-exception! :effectuation e)))
       (throw (ex-info (str "Unsupported effect kind: " kind) {:kind kind})))))
 
+(defn valid-effect? [effect]
+  (and (vector? effect)
+       (keyword? (first effect))))
+
 (defn dispatch-command! [state req command-handler]
   (httpkit/as-channel
    req
@@ -324,10 +336,14 @@
     (fn [ch]
       (httpkit/send! ch {:status 202})
       (let [params (some-> req :query-string ring.util.codec/form-decode)]
-        (try (effectuate! (command-handler state params))
-             (catch Exception e
-               (report-exception! :command-dispatch e {:handler command-handler
-                                                       :params params})))))}))
+        (try
+          (let [effects (command-handler state params)]
+            (when-let [malformed (first (remove valid-effect? effects))]
+              (throw (ex-info "Malformed effect" {:malformed malformed :effects effects})))
+            (effectuate! effects))
+          (catch Exception e
+            (report-exception! :command-dispatch e {:handler command-handler
+                                                    :params params})))))}))
 
 ;; ── machinery ─────────────────────────────────────────────────────────────
 
