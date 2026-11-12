@@ -59,13 +59,21 @@
 
   Invoke the #'plus command with parameter delta=5:
 
-      {:data-on:click (invoke #'plus {\"delta\" 5})}"
+      {:data-on:click (invoke #'plus {\"delta\" 5})}
+
+  Invoke the #'plus command and disable the input element:
+
+      {:data-on:click (invoke #'plus nil {:disable true})}"
   ([command-var]
-   (invoke command-var nil))
-  ([command-var params]
-   (str "@post('" (-> command-var meta :command/uri)
-        (when params (str "?" (ring.util.codec/form-encode params)))
-        "')")))
+   (invoke command-var nil nil))
+  ([command-var command-params]
+   (invoke command-var command-params nil))
+  ([command-var command-params {:keys [disable]}]
+   (->> [(when disable "el.disabled = true;")
+         (str "@post('" (-> command-var meta :command/uri)
+              (when command-params (str "?" (ring.util.codec/form-encode command-params)))
+              "')")]
+        (filterv some?))))
 
 (defn commands-by-uri [command-vars]
   (let [command-map (into {} (map (juxt (comp :command/uri meta) identity)) command-vars)]
