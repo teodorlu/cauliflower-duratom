@@ -73,8 +73,8 @@
       (throw (ex-info "Invalid commands, overlapping URI"
                       {:conflicts (->> command-vars
                                        (group-by (comp :command/uri meta))
-                                       (remove (fn [[k v]]
-                                                 (<= 2 (count v))))
+                                       (remove (fn [[_uri vars]]
+                                                 (<= 2 (count vars))))
                                        (into {}))})))
     command-map))
 
