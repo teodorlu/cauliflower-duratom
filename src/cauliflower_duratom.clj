@@ -246,9 +246,9 @@
 
 (defn book-appointment
   {:command/uri "/book-appointment"}
-  [state {:strs [date hour]}]
+  [state {:strs [date hour] :as params}]
   (let [login (:session/login state)]
-    [nil ; TODO persist booking
+    [(prn 'TODO 'persist 'booking params)
      [:garden-email/send {:to {:email owner-email}
                           :subject (format "%s (%s) booked appointment at %s %s:00"
                                            (:user/name login) (:user/email login) date hour)}]
@@ -257,9 +257,9 @@
 
 (defn unbook-appointment
   {:command/uri "/unbook-appointment"}
-  [state {:strs [appointment date hour]}]
+  [state {:strs [appointment date hour] :as params}]
   (let [login (:session/login state)]
-    [; ; TODO remove persisted booking
+    [(prn 'TODO 'remove 'persisted 'booking params)
      [:garden-email/send {:to {:email owner-email}
                           :subject (format "%s (%s) has canceled their appointment at %s %s:00"
                                            (:user/name login) (:user/email login) date hour)}]
