@@ -357,9 +357,6 @@
   (merge (system->state @!system)
          (req->state req)))
 
-(defn create-dev-state []
-  (create-state @!last-req))
-
 (def head
   [:head
    [:meta {:charset "UTF-8"}]
@@ -368,8 +365,12 @@
    [:script {:type "module" :src "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"}]
    [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css"}]])
 
+
 (defonce !last-req (atom nil))
-(comment @!last-req)
+
+(defn create-dev-state "REPL helper to get a state to pass to functions."
+  []
+  (create-state @!last-req))
 
 (defn app [{:keys [request-method uri] :as req}]
   (reset! !last-req req)
