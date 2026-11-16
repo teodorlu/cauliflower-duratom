@@ -254,9 +254,9 @@
 
 (defn unbook-appointment
   {:command/uri "/unbook-appointment"}
-  [state {:strs [appointment date hour] :as params}]
+  [state {:strs [date hour] :as params}]
   (let [login (:session/login state)]
-    [(prn 'TODO 'remove 'persisted 'booking params)
+    [[:duratom/dissoc-in [:state/appointments date (parse-long hour)]]
      [:garden-email/send {:to {:email owner-email}
                           :subject (format "%s (%s) has canceled their appointment at %s %s:00"
                                            (:user/name login) (:user/email login) date hour)}]
