@@ -115,9 +115,8 @@
 ;; ── app & render ──────────────────────────────────────────────────────────
 
 (defn find-appointment [state date hour]
-  ;; TODO
-  )
-#_(find-appointment state "2026-10-21" 8)
+  (get-in state [:state/appointments date hour]))
+#_(find-appointment state "2026-11-16" 9)
 
 (defn free? [state availability date hour]
   (and (some (fn [{:keys [start end]}] (<= start hour end))
@@ -125,29 +124,27 @@
        (not (find-appointment state date hour))))
 #_(free? state {:monday [{:start 12 :end 15}]} "2024-01-01" 15)
 
-(defn render-day [state day]
+(defn render-day [state date]
   [:div
-   [:strong (str (name (date->keyword day)))]
-   [:span " (" day ")"]
-   (for [hour (mapcat #(range (:start %) (:end %)) (availability (date->keyword day)))
-         :let [appointment (find-appointment state day hour)
-               status (cond (free? state availability day hour) :free
+   [:strong (str (name (date->keyword date)))]
+   [:span " (" date ")"]
+   (for [hour (mapcat #(range (:start %) (:end %)) (availability (date->keyword date)))
+         :let [status (cond (free? state availability date hour) :free
 
-                            (= (-> appointment :appointment/booked-by :user/uuid)
-                               (-> state :session/login :user/uuid))
+                            (= (find-appointment state date hour)
+                               (-> state :session/login :user/email))
                             :mine
 
                             :else nil)]
-         :when status]     ; either free or booked by the current user
+         :when status] ; :free or :mine
      [:div
       [:input {:type "checkbox"
                :checked (= status :mine)
                :data-on:change
                (if (= status :free)
-                 (invoke #'book-appointment {"date" day "hour" hour} {:disable true})
+                 (invoke #'book-appointment {"date" date "hour" hour} {:disable true})
                  (invoke #'unbook-appointment
-                         {"appointment" (:appointment/id appointment)
-                          "date" day
+                         {"date" date
                           "hour" hour}
                          {:disable true}))}]
       (str hour ":00")])])
