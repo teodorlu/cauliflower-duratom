@@ -360,6 +360,9 @@
   (merge (system->state @!system)
          (req->state req)))
 
+(defn create-dev-state []
+  (create-state @!last-req))
+
 (def head
   [:head
    [:meta {:charset "UTF-8"}]
