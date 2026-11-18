@@ -245,7 +245,7 @@
   {:command/uri "/book-appointment"}
   [state {:strs [date hour]}]
   (let [login (:session/login state)]
-    [[:duratom/assoc-in [:state/appointments date (parse-long hour)] "teodor@local"]
+    [[:duratom/assoc-in [:state/appointments date (parse-long hour)] (:user/email login)]
      [:garden-email/send {:to {:email owner-email}
                           :subject (format "%s (%s) booked appointment at %s %s:00"
                                            (:user/name login) (:user/email login) date hour)}]
