@@ -205,10 +205,9 @@
 
 (defn re-render! []
   (doseq [[ch conn-state] (:datastar/connections @!system)]
-    (let [state (merge (system->state @!system) conn-state)
-          encode (:connection/encoder conn-state)]
+    (let [state (merge (system->state @!system) conn-state)]
       (httpkit/send! ch
-                     (encode (sse-patch-elements (str (h/html {:mode :html} (index state)))))
+                     (sse-patch-elements (str (h/html {:mode :html} (index state))))
                      false))))
 
 (defn stream [req]
@@ -216,14 +215,11 @@
    req
    {:on-open
     (fn [ch]
-      (let [encoder+headers (torque/pick-encoder req)]
-        (httpkit/send! ch {:status 200
-                           :headers (into {"content-type" "text/event-stream"
-                                           "cache-control" "no-cache"}
-                                          (:headers encoder+headers))}
-                       false)
-        (swap! !system assoc-in [:datastar/connections ch] (req->state req))
-        (swap! !system assoc-in [:datastar/connections ch :connection/encoder] (:encode encoder+headers))))
+      (httpkit/send! ch {:status 200
+                         :headers {"content-type" "text/event-stream"
+                                   "cache-control" "no-cache"}}
+                     false)
+      (swap! !system assoc-in [:datastar/connections ch] (req->state req)))
 
     :on-close
     (fn [ch _status]
